@@ -1,0 +1,54 @@
+import boto3
+
+def move_files_sftp_to_s3(sftp_server_id, sftp_user_name, s3_bucket, s3_prefix=''):
+    # Cria uma instância do cliente SFTP
+    sftp_client = boto3.client('sftp')
+
+    # Cria uma instância do cliente S3
+    s3_client = boto3.client('s3')
+
+    # Lista os arquivos no servidor SFTP
+    response = sftp_client.list_files(
+        ServerId=sftp_server_id,
+        UserName=sftp_user_name,
+        MaxResults=100
+    )
+
+    # Verifica se há arquivos para mover
+    if 'Files' in response:
+        # Itera sobre os arquivos encontrados
+        for file in response['Files']:
+            # Obtém o nome do arquivo
+            file_name = file['FileName']
+
+            # Cria o caminho de destino para o arquivo no bucket do S3
+            destination_key = s3_prefix + file_name if s3_prefix else file_name
+
+            # Move o arquivo para o bucket do S3
+            s3_client.upload_file(
+                f"/{sftp_server_id}/{sftp_user_name}/{file_name}",
+                s3_bucket,
+                destination_key
+            )
+            print(f"Arquivo movido: {file_name}")
+
+            # Remove o arquivo do servidor SFTP após a movimentação
+            sftp_client.delete_file(
+                ServerId=sftp_server_id,
+                UserName=sftp_user_name,
+                FileName=file_name
+            )
+            print(f"Arquivo removido do servidor SFTP: {file_name}")
+
+    else:
+        print("Nenhum arquivo encontrado no servidor SFTP.")
+
+
+# Defina as informações do servidor SFTP, bucket S3 e prefixo (opcional)
+sftp_server_id = 'ID_DO_SERVIDOR_SFTP'
+sftp_user_name = 'NOME_DO_USUÁRIO_SFTP'
+s3_bucket = 'NOME_DO_BUCKET_S3'
+s3_prefix = 'PASTA_NO_BUCKET_S3/'
+
+# Chame a função para mover os arquivos
+move_files_sftp_to_s3(sftp_server_id, sftp_user_name, s3_bucket, s3_prefix)
